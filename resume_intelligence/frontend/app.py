@@ -181,19 +181,37 @@ def page_ats() -> None:
 
     result = st.session_state.get("ats_result")
     if result:
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric("ATS Score", f"{result.ats_score}%")
-        col2.metric("Skill Match", f"{result.skill_match_score}%")
-        col3.metric("Semantic Similarity", f"{result.semantic_similarity_score}%")
-        col4.metric("Experience Relevance", f"{result.experience_relevance_score}%")
+        st.metric("Overall ATS Score", f"{result.ats_score}%")
 
-        st.subheader("Score Breakdown")
+        st.subheader("8-Dimension Scores")
+        labels = result.breakdown.get("dimension_labels", {})
+        dims = result.dimensions
+
+        row1 = st.columns(4)
+        row2 = st.columns(4)
+        dim_items = list(dims.items())
+        for i, (key, score) in enumerate(dim_items):
+            col = row1[i] if i < 4 else row2[i - 4]
+            col.metric(labels.get(key, key.replace("_", " ").title()), f"{score}%")
+
+        if result.breakdown.get("tfidf_keywords"):
+            with st.expander("TF-IDF Keyword Alignment"):
+                kw = result.breakdown["tfidf_keywords"]
+                c1, c2 = st.columns(2)
+                with c1:
+                    st.markdown("**Matched keywords**")
+                    for term in kw.get("matched_keywords", []):
+                        st.success(term)
+                with c2:
+                    st.markdown("**Missing keywords**")
+                    for term in kw.get("missing_keywords", []):
+                        st.error(term)
+
+        st.subheader("Full Breakdown")
         st.json(
             {
                 "ats_score": result.ats_score,
-                "skill_match_score": result.skill_match_score,
-                "semantic_similarity_score": result.semantic_similarity_score,
-                "experience_relevance_score": result.experience_relevance_score,
+                "dimensions": result.dimensions,
                 "breakdown": result.breakdown,
             }
         )
@@ -203,9 +221,7 @@ def page_ats() -> None:
             data=json.dumps(
                 {
                     "ats_score": result.ats_score,
-                    "skill_match_score": result.skill_match_score,
-                    "semantic_similarity_score": result.semantic_similarity_score,
-                    "experience_relevance_score": result.experience_relevance_score,
+                    "dimensions": result.dimensions,
                     "breakdown": result.breakdown,
                 },
                 indent=2,

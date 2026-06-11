@@ -135,13 +135,20 @@ Resume_checker/
 
 ## ATS Scoring Algorithm
 
-```
-ATS Score = 0.40 × Skill Match
-          + 0.40 × Semantic Similarity (SBERT embeddings)
-          + 0.20 × Experience Relevance
-```
+Scores resumes across **8 dimensions** (12.5% weight each):
 
-Skill match uses keyword overlap between resume skills and job description. Semantic similarity uses [Sentence Transformers](https://www.sbert.net/) cosine similarity on normalized embeddings.
+| Dimension | Method |
+|-----------|--------|
+| Impact Language | Impact-word presence in bullets |
+| Quantification | Numbers, metrics, percentages detected |
+| ATS Keyword Alignment | TF-IDF keyword extraction + resume coverage |
+| Section Completeness | Education, skills, experience, projects, contact |
+| Action Verb Density | Strong action verb frequency |
+| Skill Relevance | Required skill overlap with job description |
+| Formatting | Contact info, length, structure heuristics |
+| Role-Fit | TF-IDF cosine similarity (resume vs. job description) |
+
+Keyword alignment and role-fit use [scikit-learn TfidfVectorizer](https://scikit-learn.org/stable/modules/generated/sklearn.feature_extraction.text.TfidfVectorizer.html) to map job-description terms against resume content.
 
 ---
 

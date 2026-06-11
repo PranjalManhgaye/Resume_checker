@@ -77,9 +77,7 @@ def ats_endpoint(body: JobDescriptionRequest) -> dict[str, Any]:
     result = compute_ats_score(resume, body.job_description)
     return {
         "ats_score": result.ats_score,
-        "skill_match_score": result.skill_match_score,
-        "semantic_similarity_score": result.semantic_similarity_score,
-        "experience_relevance_score": result.experience_relevance_score,
+        "dimensions": result.dimensions,
         "breakdown": result.breakdown,
     }
 
