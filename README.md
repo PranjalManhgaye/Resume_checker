@@ -156,6 +156,8 @@ Scores resumes across **8 dimensions** (12.5% weight each):
 
 Keyword alignment and role-fit use [scikit-learn TfidfVectorizer](https://scikit-learn.org/stable/modules/generated/sklearn.feature_extraction.text.TfidfVectorizer.html) to map job-description terms against resume content.
 
+For formulas, weights, TF-IDF params, and limitations see **[ALGORITHM.md](ALGORITHM.md)**.
+
 ---
 
 ## Design Principles
