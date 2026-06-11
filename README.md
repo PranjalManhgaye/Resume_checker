@@ -161,6 +161,12 @@ Keyword alignment and role-fit use [scikit-learn TfidfVectorizer](https://scikit
 
 ---
 
+## Screenshots
+
+_Coming soon — see [assets/](assets/) and issue #2._
+
+---
+
 ## Author
 
 **Pranjal Manhgaye**
