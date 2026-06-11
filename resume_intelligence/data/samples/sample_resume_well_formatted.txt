@@ -1,0 +1,28 @@
+Alex Johnson
+alex.johnson@email.com
+https://github.com/alexjohnson
+https://linkedin.com/in/alexjohnson
+
+EDUCATION
+B.Tech Computer Science, State University
+CGPA: 8.33/10
+2019 - 2023
+
+SKILLS
+Python, Java, SQL, React, Docker, Git, Machine Learning, FastAPI
+
+EXPERIENCE
+Software Engineering Intern | TechCorp Inc.
+June 2022 - August 2022
+- Built REST APIs using FastAPI and PostgreSQL
+- Deployed services with Docker on AWS
+- Reduced API response time through query optimization
+
+PROJECTS
+Resume Parser Tool
+- Developed a PDF resume parser using Python and PyMuPDF
+- Implemented skill extraction with regex and section detection
+
+E-Commerce Dashboard
+- Built a React dashboard with data visualization
+- Integrated with REST backend APIs
