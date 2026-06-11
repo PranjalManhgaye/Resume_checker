@@ -1,5 +1,11 @@
 # Resume Intelligence Platform
 
+![Python](https://img.shields.io/badge/python-3.12+-blue.svg)
+![Tests](https://img.shields.io/badge/tests-26%20passing-brightgreen.svg)
+![License](https://img.shields.io/badge/license-MIT-green.svg)
+![FastAPI](https://img.shields.io/badge/FastAPI-REST-009688.svg)
+![Streamlit](https://img.shields.io/badge/UI-Streamlit-FF4B4B.svg)
+
 An AI-powered resume analysis platform that goes beyond simple ATS checking. Upload a resume, match it against job descriptions, identify skill gaps, auto-fill application forms, and generate recruiter-ready summaries.
 
 Built with Python, Streamlit, Sentence Transformers, and pluggable LLM backends (Groq / Gemini).
@@ -11,7 +17,7 @@ Built with Python, Streamlit, Sentence Transformers, and pluggable LLM backends 
 | Feature | Description |
 |---------|-------------|
 | **Resume Parser** | Extract structured data from PDF and DOCX (PyMuPDF + pdfplumber fallback) |
-| **ATS Scoring** | 40% skill match + 40% semantic similarity + 20% experience relevance |
+| **ATS Scoring** | 8-dimension score: impact, quantification, TF-IDF keywords, sections, verbs, skills, formatting, role-fit |
 | **Skill Gap Analysis** | Matched, missing, and recommended skills from job descriptions |
 | **Form Autofill** | Deterministic + AI answers for application questions |
 | **Resume Improvement** | Rephrase bullets without inventing facts |
