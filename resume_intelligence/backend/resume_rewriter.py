@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import json
-import re
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
@@ -13,16 +11,14 @@ from utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-SYSTEM_PROMPT = """You are a professional resume writing coach.
+BULLET_SYSTEM = """You are a professional resume coach (EnhanceCV-style clarity).
 
 Rules:
-- Improve clarity, impact, and action-oriented language.
-- Preserve truthfulness — never invent numbers, metrics, or achievements.
-- Only rephrase facts already present in the original text.
-- If a bullet lacks enough detail to improve, return it unchanged.
-- Use strong action verbs where appropriate.
-- Return valid JSON only with keys "experience" and "projects".
-- Each key maps to an array of {"original": "...", "improved": "..."} objects."""
+- Rewrite for impact: strong past-tense action verb first, clear outcome when stated in original.
+- Preserve every fact — never invent employers, tools, numbers, or metrics.
+- If the bullet is only a project title with no actions, expand structure but do not add fake results.
+- Keep similar length (1-2 lines).
+- Return JSON only: {"original": "...", "improved": "..."}"""
 
 
 @dataclass
@@ -33,6 +29,7 @@ class ImprovedBullet:
     original: str
     improved: str
     unchanged: bool = False
+    score_hint: str = ""
 
 
 @dataclass
@@ -48,7 +45,7 @@ def improve_resume(
     resume: ResumeData,
     llm_client: Optional[LLMClient] = None,
 ) -> RewriteResult:
-    """Generate improved experience and project bullet points in one API call."""
+    """Improve experience and project bullets one at a time for reliable JSON."""
     result = RewriteResult()
 
     exp_bullets = _collect_bullets(resume.experience)
@@ -57,24 +54,25 @@ def improve_resume(
     if not exp_bullets and not proj_bullets:
         result.errors.append(
             "No experience or project bullets found to improve. "
-            "Ensure your resume has description bullets under each role."
+            "Upload a resume with description text under each role or project."
         )
         return result
 
     try:
         client = llm_client or get_llm_client()
-        parsed = _improve_all_bullets(client, exp_bullets, proj_bullets)
-        result.experience = parsed.get("experience", [])
-        result.projects = parsed.get("projects", [])
+        result.experience = _improve_section(client, "experience", exp_bullets)
+        result.projects = _improve_section(client, "projects", proj_bullets)
     except LLMAPIError as exc:
         result.errors.append(exc.user_message)
         result.experience = _fallback_bullets("experience", exp_bullets)
         result.projects = _fallback_bullets("projects", proj_bullets)
-    except Exception as exc:
-        logger.error("Resume rewrite failed: %s", exc)
-        result.errors.append(str(exc))
-        result.experience = _fallback_bullets("experience", exp_bullets)
-        result.projects = _fallback_bullets("projects", proj_bullets)
+
+    changed = sum(1 for b in result.experience + result.projects if not b.unchanged)
+    if not changed and not result.errors:
+        result.errors.append(
+            "AI could not improve these bullets — try adding more detail to descriptions "
+            "or fix parser output on the Upload page."
+        )
 
     return result
 
@@ -89,7 +87,10 @@ def _collect_bullets(entries: list[dict[str, Any]]) -> list[str]:
         dates = entry.get("dates", "").strip()
 
         if desc:
-            bullets.append(desc)
+            for line in desc.split("\n"):
+                line = line.strip().lstrip("•-* ").strip()
+                if line:
+                    bullets.append(line)
         elif title:
             parts = [title]
             if org and org.lower() not in title.lower():
@@ -100,59 +101,60 @@ def _collect_bullets(entries: list[dict[str, Any]]) -> list[str]:
     return bullets
 
 
-def _improve_all_bullets(
+def _improve_section(
     client: LLMClient,
-    exp_bullets: list[str],
-    proj_bullets: list[str],
-) -> dict[str, list[ImprovedBullet]]:
-    """Send experience and project bullets in one Gemini request."""
-    prompt = f"""Improve these resume bullets.
-
-Experience bullets:
-{json.dumps(exp_bullets, indent=2)}
-
-Project bullets:
-{json.dumps(proj_bullets, indent=2)}
-
-Return JSON with "experience" and "projects" arrays.
-Each item must have "original" and "improved" keys."""
-
-    response = client.generate_text(
-        prompt=prompt,
-        system=SYSTEM_PROMPT,
-        max_output_tokens=2048,
-    )
-    cleaned = _strip_json_fences(response)
-    parsed = json.loads(cleaned)
-
-    return {
-        "experience": _parse_bullet_list(parsed.get("experience", []), "experience", exp_bullets),
-        "projects": _parse_bullet_list(parsed.get("projects", []), "projects", proj_bullets),
-    }
-
-
-def _parse_bullet_list(
-    items: list[dict[str, Any]],
     section: str,
-    originals: list[str],
+    bullets: list[str],
 ) -> list[ImprovedBullet]:
-    """Parse Gemini response into ImprovedBullet list."""
-    if not items and originals:
-        return _fallback_bullets(section, originals)
-
-    bullets: list[ImprovedBullet] = []
-    for item in items:
-        original = item.get("original", "")
-        improved = item.get("improved", MISSING_INFO)
-        bullets.append(
-            ImprovedBullet(
-                section=section,
-                original=original,
-                improved=improved,
-                unchanged=original.strip() == improved.strip(),
+    improved: list[ImprovedBullet] = []
+    for bullet in bullets:
+        try:
+            improved.append(_improve_single_bullet(client, section, bullet))
+        except LLMAPIError as exc:
+            logger.warning("Bullet rewrite failed: %s", exc)
+            improved.append(
+                ImprovedBullet(
+                    section=section,
+                    original=bullet,
+                    improved=bullet,
+                    unchanged=True,
+                    score_hint="rewrite failed",
+                )
             )
-        )
-    return bullets
+    return improved
+
+
+def _improve_single_bullet(client: LLMClient, section: str, bullet: str) -> ImprovedBullet:
+    prompt = f"""Section: {section}
+
+Original bullet:
+{bullet}
+
+Rewrite for clarity and impact. Return JSON with "original" and "improved" keys."""
+
+    parsed = client.generate_json(prompt=prompt, system=BULLET_SYSTEM, max_output_tokens=512)
+
+    if not isinstance(parsed, dict):
+        raise LLMAPIError("Invalid bullet response shape")
+
+    original = str(parsed.get("original", bullet)).strip() or bullet
+    improved = str(parsed.get("improved", bullet)).strip() or bullet
+
+    if improved == MISSING_INFO:
+        improved = bullet
+
+    unchanged = _normalize(original) == _normalize(improved)
+    return ImprovedBullet(
+        section=section,
+        original=bullet,
+        improved=improved,
+        unchanged=unchanged,
+        score_hint="" if unchanged else "improved",
+    )
+
+
+def _normalize(text: str) -> str:
+    return " ".join(text.lower().split())
 
 
 def _fallback_bullets(section: str, bullets: list[str]) -> list[ImprovedBullet]:
@@ -161,11 +163,3 @@ def _fallback_bullets(section: str, bullets: list[str]) -> list[ImprovedBullet]:
         ImprovedBullet(section=section, original=b, improved=b, unchanged=True)
         for b in bullets
     ]
-
-
-def _strip_json_fences(text: str) -> str:
-    cleaned = text.strip()
-    if cleaned.startswith("```"):
-        cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
-        cleaned = re.sub(r"\s*```$", "", cleaned)
-    return cleaned

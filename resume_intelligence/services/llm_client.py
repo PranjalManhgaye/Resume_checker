@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from typing import Optional, Protocol, runtime_checkable
+from typing import Any, Optional, Protocol, runtime_checkable
 
 from dotenv import load_dotenv
 
@@ -39,6 +39,13 @@ class LLMClient(Protocol):
         system: Optional[str] = None,
         max_output_tokens: Optional[int] = None,
     ) -> str: ...
+
+    def generate_json(
+        self,
+        prompt: str,
+        system: Optional[str] = None,
+        max_output_tokens: Optional[int] = None,
+    ) -> Any: ...
 
 
 _client_instance: Optional[LLMClient] = None
