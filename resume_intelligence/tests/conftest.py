@@ -15,7 +15,7 @@ if str(ROOT) not in sys.path:
 if str(TESTS_DIR) not in sys.path:
     sys.path.insert(0, str(TESTS_DIR))
 
-from llm_fixtures import FixtureLLMClient, load_llm_fixture
+from llm_fixtures import FixtureLLMClient, RewriterFixtureLLMClient, load_llm_fixture
 
 
 @pytest.fixture
@@ -90,9 +90,9 @@ def form_fill_mock_client() -> FixtureLLMClient:
 
 
 @pytest.fixture
-def rewriter_mock_client() -> FixtureLLMClient:
-    """Mock LLM client returning golden rewriter JSON."""
-    return FixtureLLMClient(load_llm_fixture("rewriter_response.json"))
+def rewriter_mock_client() -> RewriterFixtureLLMClient:
+    """Mock LLM client returning golden rewriter JSON per bullet."""
+    return RewriterFixtureLLMClient(load_llm_fixture("rewriter_response.json"))
 
 
 @pytest.fixture

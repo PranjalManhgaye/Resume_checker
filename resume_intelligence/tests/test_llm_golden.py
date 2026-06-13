@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -13,15 +14,36 @@ from models.resume import ResumeData
 from llm_fixtures import (
     BANNED_LLM_PHRASES,
     FixtureLLMClient,
+    RewriterFixtureLLMClient,
     load_llm_json_fixture,
 )
+
+
+def test_form_fill_deterministic_from_resume(sample_resume_alex: ResumeData) -> None:
+    """Common form questions should resolve from resume without calling the LLM."""
+    mock = MagicMock()
+    questions = [
+        FormQuestion("What is your full name?"),
+        FormQuestion("What is your email address?"),
+        FormQuestion("What is your CGPA?"),
+        FormQuestion("Describe your work experience."),
+        FormQuestion("List a project you built and what technologies you used."),
+    ]
+    answers = fill_form(sample_resume_alex, questions, llm_client=mock)
+
+    assert answers["What is your full name?"] == "Alex Johnson"
+    assert answers["What is your email address?"] == "alex.johnson@email.com"
+    assert answers["What is your CGPA?"] == "8.33"
+    assert "FastAPI" in answers["Describe your work experience."]
+    assert "PyMuPDF" in answers["List a project you built and what technologies you used."]
+    mock.generate_json.assert_not_called()
 
 
 def test_form_fill_golden_answers(
     sample_resume_alex: ResumeData,
     form_fill_mock_client: FixtureLLMClient,
 ) -> None:
-    """Form fill with mocked LLM must match golden expected answers."""
+    """Open-ended form questions use mocked LLM JSON and match golden answers."""
     questions_json = load_llm_json_fixture("form_fill_questions.json")
     expected = load_llm_json_fixture("form_fill_expected_answers.json")
 
@@ -35,7 +57,7 @@ def test_form_fill_golden_answers(
 
 def test_rewriter_golden_output_differs_and_avoids_banned_phrases(
     sample_resume_alex: ResumeData,
-    rewriter_mock_client: FixtureLLMClient,
+    rewriter_mock_client: RewriterFixtureLLMClient,
 ) -> None:
     """Rewriter output must differ from input and avoid banned AI phrases."""
     golden = load_llm_json_fixture("rewriter_response.json")
@@ -85,10 +107,10 @@ def test_form_fill_mock_client_returns_valid_json(form_fill_mock_client: Fixture
     """Golden form-fill fixture must be valid JSON mapping questions to answers."""
     parsed = json.loads(form_fill_mock_client.response)
     assert isinstance(parsed, dict)
-    assert len(parsed) == 3
+    assert len(parsed) == 2
 
 
-def test_rewriter_mock_client_returns_valid_json(rewriter_mock_client: FixtureLLMClient) -> None:
+def test_rewriter_mock_client_returns_valid_json(rewriter_mock_client: RewriterFixtureLLMClient) -> None:
     """Golden rewriter fixture must contain experience and projects arrays."""
     parsed = json.loads(rewriter_mock_client.response)
     assert "experience" in parsed

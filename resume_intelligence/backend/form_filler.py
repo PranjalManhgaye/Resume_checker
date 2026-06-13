@@ -137,17 +137,19 @@ def _try_deterministic_answer(
             return str(resume.projects[0].get("title", MISSING_INFO))
         return MISSING_INFO
 
-    if any(k in q_lower for k in ("skill", "technolog", "programming language", "tools you know")):
+    if any(k in q_lower for k in ("project", "portfolio piece", "side project", "built a project")) and "title" not in q_lower:
+        proj = synthesize_projects_answer(resume)
+        return proj if proj else MISSING_INFO
+
+    if any(k in q_lower for k in ("skill", "programming language", "tools you know")) or (
+        "technolog" in q_lower and "project" not in q_lower
+    ):
         skills = synthesize_skills_answer(resume)
         return skills if skills else MISSING_INFO
 
     if any(k in q_lower for k in ("education", "degree", "university", "college", "qualification")):
         edu = synthesize_education_answer(resume)
         return edu if edu else MISSING_INFO
-
-    if any(k in q_lower for k in ("project", "portfolio piece", "side project")) and "title" not in q_lower:
-        proj = synthesize_projects_answer(resume)
-        return proj if proj else MISSING_INFO
 
     if any(
         k in q_lower
@@ -338,12 +340,12 @@ def _normalize_answers(parsed: dict[str, Any], questions: list[FormQuestion]) ->
 
 def _classify_question(question: str) -> str:
     q = question.lower()
-    if YES_NO_PATTERN.search(q):
+    if any(k in q for k in ("describe", "explain", "why", "tell us", "summary")):
+        return "long"
+    if YES_NO_PATTERN.search(q) and len(q.split()) <= 8:
         return "yes_no"
     if any(k in q for k in ("years", "how many", "number of", "cgpa", "gpa", "phone")):
         return "short"
-    if any(k in q for k in ("describe", "explain", "why", "tell us", "summary")):
-        return "long"
     return "short"
 
 
