@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 from models.resume import ResumeData
-from services.llm_client import MISSING_INFO, LLMClient, get_llm_client
+from services.llm_client import MISSING_INFO, LLMAPIError, LLMClient, get_llm_client
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -19,6 +19,11 @@ CGPA_PATTERN = re.compile(
 )
 YEAR_PATTERN = re.compile(r"\b(20\d{2}|19\d{2})\b")
 
+YES_NO_PATTERN = re.compile(
+    r"\b(are you|do you|have you|can you|will you|is this|yes/no)\b",
+    re.IGNORECASE,
+)
+
 
 @dataclass
 class FormQuestion:
@@ -28,13 +33,14 @@ class FormQuestion:
     field_type: Optional[str] = None
 
 
-SYSTEM_PROMPT = """You are an application form assistant. Answer questions using ONLY the resume data provided.
+SYSTEM_PROMPT = """You are an application form assistant. Answer using ONLY the resume data provided.
 
 Rules:
 - Use facts from the resume JSON only.
 - If the answer is not in the resume, respond exactly with: "Information not available."
 - Never invent numbers, dates, achievements, or employers.
-- Keep answers concise and professional.
+- Yes/no questions: answer "Yes" or "No" only when clearly supported; otherwise "Information not available."
+- Short fields: one line max. Long text: 2-4 sentences max.
 - Return valid JSON only: an object mapping each question string to its answer.
 """
 
@@ -47,31 +53,33 @@ def fill_form(
     """
     Generate answers for application form questions.
 
-    Tries deterministic extraction first, then one batched Gemini call for the rest.
+    Tries deterministic extraction first, then batched JSON LLM call,
+    then per-question fallback if batch parsing fails.
     """
     if not questions:
         return {}
 
     answers: dict[str, str] = {}
-    gemini_needed: list[FormQuestion] = []
+    llm_needed: list[FormQuestion] = []
 
     for q in questions:
         deterministic = _try_deterministic_answer(resume, q)
         if deterministic is not None:
             answers[q.question] = deterministic
         else:
-            gemini_needed.append(q)
+            llm_needed.append(q)
 
-    if gemini_needed:
-        client = llm_client or get_llm_client()
-        batch_answers = _gemini_answer_batch(client, resume, gemini_needed)
-        answers.update(batch_answers)
+    if not llm_needed:
+        return answers
 
+    client = llm_client or get_llm_client()
+    batch_answers = _llm_answer_batch(client, resume, llm_needed)
+    answers.update(batch_answers)
     return answers
 
 
 def _try_deterministic_answer(resume: ResumeData, question: FormQuestion) -> Optional[str]:
-    """Return an answer without calling Gemini when possible."""
+    """Return an answer without calling the LLM when possible."""
     q_lower = question.question.lower()
 
     if any(k in q_lower for k in ("name", "full name", "your name")):
@@ -109,17 +117,14 @@ def _try_deterministic_answer(resume: ResumeData, question: FormQuestion) -> Opt
 
 
 def _extract_cgpa(resume: ResumeData) -> str:
-    """Search education descriptions and raw text for CGPA."""
     search_text = resume.raw_text
     for edu in resume.education:
         search_text += " " + " ".join(str(v) for v in edu.values())
-
     match = CGPA_PATTERN.search(search_text)
     return match.group(1) if match else ""
 
 
 def _extract_graduation_year(resume: ResumeData) -> str:
-    """Find the most recent year mentioned in education entries."""
     years: list[str] = []
     for edu in resume.education:
         for value in edu.values():
@@ -134,13 +139,33 @@ def _extract_phone(text: str) -> str:
     return match.group(0) if match else ""
 
 
-def _gemini_answer_batch(
+def _resume_context(resume: ResumeData) -> dict:
+    """Richer context for open-ended questions — includes raw_text snippet."""
+    ctx = resume.to_llm_context()
+    if resume.raw_text.strip():
+        ctx["raw_text_excerpt"] = resume.raw_text[:4000]
+    return ctx
+
+
+def _llm_answer_batch(
     client: LLMClient,
     resume: ResumeData,
     questions: list[FormQuestion],
 ) -> dict[str, str]:
-    """Answer all open-ended questions in a single Gemini call."""
-    resume_json = json.dumps(resume.to_llm_context(), indent=2)
+    """Answer questions in one JSON call; fall back to per-question on failure."""
+    try:
+        return _llm_answer_batch_once(client, resume, questions)
+    except LLMAPIError as exc:
+        logger.warning("Batch form fill failed (%s), trying per-question.", exc)
+        return _llm_answer_one_by_one(client, resume, questions)
+
+
+def _llm_answer_batch_once(
+    client: LLMClient,
+    resume: ResumeData,
+    questions: list[FormQuestion],
+) -> dict[str, str]:
+    resume_json = json.dumps(_resume_context(resume), indent=2)
     question_list = json.dumps([q.question for q in questions], indent=2)
 
     prompt = f"""Resume data:
@@ -149,30 +174,86 @@ def _gemini_answer_batch(
 Questions:
 {question_list}
 
-Return a JSON object mapping each question string to its answer."""
+Return a JSON object mapping each question string exactly to its answer."""
 
-    try:
-        response = client.generate_text(
-            prompt=prompt,
-            system=SYSTEM_PROMPT,
-            max_output_tokens=1024,
-        )
-        cleaned = _strip_json_fences(response)
-        parsed = json.loads(cleaned)
-        if isinstance(parsed, dict):
-            return {str(k): str(v) for k, v in parsed.items()}
-    except json.JSONDecodeError as exc:
-        logger.error("Form fill JSON parse failed: %s", exc)
-    except Exception as exc:
-        logger.error("Form fill Gemini call failed: %s", exc)
-        raise
+    parsed = client.generate_json(prompt=prompt, system=SYSTEM_PROMPT, max_output_tokens=1536)
 
-    return {q.question: MISSING_INFO for q in questions}
+    if not isinstance(parsed, dict):
+        raise LLMAPIError("Form fill returned non-object JSON")
+
+    return _normalize_answers(parsed, questions)
 
 
-def _strip_json_fences(text: str) -> str:
-    cleaned = text.strip()
-    if cleaned.startswith("```"):
-        cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
-        cleaned = re.sub(r"\s*```$", "", cleaned)
-    return cleaned
+def _llm_answer_one_by_one(
+    client: LLMClient,
+    resume: ResumeData,
+    questions: list[FormQuestion],
+) -> dict[str, str]:
+    answers: dict[str, str] = {}
+    resume_json = json.dumps(_resume_context(resume), indent=2)
+
+    for q in questions:
+        qtype = _classify_question(q.question)
+        type_hint = f"Answer type: {qtype}."
+        prompt = f"""Resume data:
+{resume_json}
+
+Question: {q.question}
+{type_hint}
+
+Return JSON: {{"answer": "..."}}"""
+
+        try:
+            parsed = client.generate_json(
+                prompt=prompt,
+                system=SYSTEM_PROMPT,
+                max_output_tokens=384,
+            )
+            if isinstance(parsed, dict) and "answer" in parsed:
+                answers[q.question] = _trim_answer(str(parsed["answer"]), qtype)
+            elif isinstance(parsed, dict) and q.question in parsed:
+                answers[q.question] = _trim_answer(str(parsed[q.question]), qtype)
+            else:
+                answers[q.question] = MISSING_INFO
+        except LLMAPIError:
+            answers[q.question] = MISSING_INFO
+
+    return answers
+
+
+def _normalize_answers(parsed: dict, questions: list[FormQuestion]) -> dict[str, str]:
+    answers: dict[str, str] = {}
+    for q in questions:
+        qtype = _classify_question(q.question)
+        raw = parsed.get(q.question, MISSING_INFO)
+        answers[q.question] = _trim_answer(str(raw), qtype)
+    return answers
+
+
+def _classify_question(question: str) -> str:
+    q = question.lower()
+    if YES_NO_PATTERN.search(q):
+        return "yes_no"
+    if any(k in q for k in ("years", "how many", "number of", "cgpa", "gpa", "phone")):
+        return "short"
+    if any(k in q for k in ("describe", "explain", "why", "tell us", "summary")):
+        return "long"
+    return "short"
+
+
+def _trim_answer(answer: str, qtype: str) -> str:
+    answer = answer.strip()
+    if not answer:
+        return MISSING_INFO
+    if qtype == "yes_no":
+        low = answer.lower()
+        if low.startswith("yes"):
+            return "Yes"
+        if low.startswith("no"):
+            return "No"
+        if answer == MISSING_INFO:
+            return MISSING_INFO
+        return answer.split(".")[0][:80]
+    if qtype == "short":
+        return answer.split("\n")[0][:200]
+    return answer[:600]

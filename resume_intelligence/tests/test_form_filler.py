@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from unittest.mock import MagicMock
 
 from backend.form_filler import FormQuestion, fill_form
@@ -40,10 +39,10 @@ def test_gemini_called_once_for_batch() -> None:
     )
 
     mock_client = MagicMock()
-    mock_client.generate_text.return_value = json.dumps({
+    mock_client.generate_json.return_value = {
         "Describe your work experience.": "Built REST APIs at TechCorp.",
         "Why do you want this role?": "Interested in backend development.",
-    })
+    }
 
     questions = [
         FormQuestion("Describe your work experience."),
@@ -51,7 +50,7 @@ def test_gemini_called_once_for_batch() -> None:
     ]
     answers = fill_form(resume, questions, llm_client=mock_client)
 
-    mock_client.generate_text.assert_called_once()
+    mock_client.generate_json.assert_called_once()
     assert "Built REST APIs" in answers["Describe your work experience."]
 
 
