@@ -1,7 +1,7 @@
 # Resume Intelligence Platform
 
 ![Python](https://img.shields.io/badge/python-3.12+-blue.svg)
-![Tests](https://img.shields.io/badge/tests-26%20passing-brightgreen.svg)
+![Tests](https://img.shields.io/badge/tests-41%20passing-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![FastAPI](https://img.shields.io/badge/FastAPI-REST-009688.svg)
 ![Streamlit](https://img.shields.io/badge/UI-Streamlit-FF4B4B.svg)
