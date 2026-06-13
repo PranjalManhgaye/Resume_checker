@@ -1,0 +1,1 @@
+Alex Johnson is a backend-oriented candidate with internship experience building REST APIs using FastAPI and PostgreSQL at TechCorp Inc. Skilled in Python, FastAPI, Docker, and React, with notable projects including a PDF resume parser and an e-commerce dashboard.

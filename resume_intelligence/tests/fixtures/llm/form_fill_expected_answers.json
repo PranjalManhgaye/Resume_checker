@@ -1,0 +1,5 @@
+{
+  "Describe your work experience.": "Software Engineering Intern at TechCorp Inc. (June 2022 - August 2022), building REST APIs with FastAPI and PostgreSQL and deploying services with Docker on AWS.",
+  "Why are you interested in backend development?": "Interested in backend development based on internship experience building REST APIs with FastAPI and PostgreSQL at TechCorp Inc.",
+  "List a project you built and what technologies you used.": "Built Resume Parser Tool using Python and PyMuPDF with skill extraction via regex and section detection."
+}

@@ -1,0 +1,34 @@
+{
+  "experience": [
+    {
+      "original": "Built REST APIs using FastAPI and PostgreSQL",
+      "improved": "Engineered REST APIs with FastAPI and PostgreSQL to support backend services."
+    },
+    {
+      "original": "Deployed services with Docker on AWS",
+      "improved": "Deployed containerized services with Docker on AWS."
+    },
+    {
+      "original": "Reduced API response time through query optimization",
+      "improved": "Improved API response time by optimizing database queries."
+    }
+  ],
+  "projects": [
+    {
+      "original": "Developed a PDF resume parser using Python and PyMuPDF",
+      "improved": "Built a PDF resume parser in Python using PyMuPDF."
+    },
+    {
+      "original": "Implemented skill extraction with regex and section detection",
+      "improved": "Implemented skill extraction using regex patterns and section detection."
+    },
+    {
+      "original": "Built a React dashboard with data visualization",
+      "improved": "Developed a React dashboard featuring data visualization."
+    },
+    {
+      "original": "Integrated with REST backend APIs",
+      "improved": "Integrated the dashboard with REST backend APIs."
+    }
+  ]
+}
