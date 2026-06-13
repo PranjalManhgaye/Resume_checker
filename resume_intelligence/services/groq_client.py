@@ -7,12 +7,13 @@ from __future__ import annotations
 
 import os
 import time
-from typing import Optional
+from typing import Any, Optional
 
 from dotenv import load_dotenv
 from groq import Groq
 
 from services.llm_client import ConfigurationError, LLMAPIError, MISSING_INFO
+from utils.llm_json import LLMJSONError, parse_llm_json
 from utils.logger import get_logger
 
 load_dotenv()
@@ -120,6 +121,65 @@ class GroqClient:
                         continue
                     break
 
+        raise LLMAPIError(
+            str(last_error),
+            user_message=_user_message_for_status(last_status),
+            status_code=last_status,
+        )
+
+    def generate_json(
+        self,
+        prompt: str,
+        system: Optional[str] = None,
+        max_output_tokens: Optional[int] = None,
+    ) -> Any:
+        """Generate and parse JSON — uses Groq json_object mode when available."""
+        json_system = (system or "") + "\nYou must respond with valid JSON only."
+        messages: list[dict[str, str]] = []
+        if json_system.strip():
+            messages.append({"role": "system", "content": json_system.strip()})
+        messages.append({"role": "user", "content": prompt})
+
+        last_error: Optional[Exception] = None
+        last_status: Optional[int] = None
+
+        for model_name in self._models_to_try():
+            for attempt in range(1, MAX_RETRIES + 1):
+                try:
+                    kwargs: dict = {
+                        "model": model_name,
+                        "messages": messages,
+                        "response_format": {"type": "json_object"},
+                    }
+                    if max_output_tokens:
+                        kwargs["max_tokens"] = max_output_tokens
+
+                    response = self._client.chat.completions.create(**kwargs)
+                    text = (response.choices[0].message.content or "").strip()
+                    return parse_llm_json(text)
+
+                except LLMJSONError as exc:
+                    last_error = exc
+                    logger.warning("Groq JSON parse failed for model=%s: %s", model_name, exc)
+                    break
+                except Exception as exc:
+                    last_error = exc
+                    last_status = getattr(exc, "status_code", None)
+                    # Some models reject response_format — fall back to text parse once
+                    if "response_format" in str(exc).lower() or last_status == 400:
+                        try:
+                            text = self.generate_text(prompt, system=json_system, max_output_tokens=max_output_tokens)
+                            return parse_llm_json(text)
+                        except (LLMJSONError, LLMAPIError) as inner:
+                            last_error = inner
+                            break
+                    if last_status in RETRYABLE_STATUS_CODES and attempt < MAX_RETRIES:
+                        time.sleep(RETRY_BASE_DELAY_SEC * (2 ** (attempt - 1)))
+                        continue
+                    break
+
+        if isinstance(last_error, LLMJSONError):
+            raise LLMAPIError(str(last_error), user_message=str(last_error))
         raise LLMAPIError(
             str(last_error),
             user_message=_user_message_for_status(last_status),

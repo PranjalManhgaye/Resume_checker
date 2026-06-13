@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import os
 import time
-from typing import Optional
+from typing import Any, Optional
 
 from dotenv import load_dotenv
 from google import genai
@@ -16,6 +16,7 @@ from google.genai import types
 from google.genai.errors import ClientError
 
 from services.llm_client import ConfigurationError, LLMAPIError, MISSING_INFO
+from utils.llm_json import LLMJSONError, parse_llm_json
 from utils.logger import get_logger
 
 load_dotenv()
@@ -156,6 +157,69 @@ class GeminiClient:
                     logger.error("Gemini API call failed: %s", exc)
                     break
 
+        raise LLMAPIError(
+            str(last_error),
+            user_message=_user_message_for_status(last_status),
+            status_code=last_status,
+        )
+
+    def generate_json(
+        self,
+        prompt: str,
+        system: Optional[str] = None,
+        max_output_tokens: Optional[int] = None,
+    ) -> Any:
+        """Generate structured JSON via Gemini response_mime_type when supported."""
+        if not prompt.strip():
+            raise LLMAPIError("Empty prompt", user_message="AI request failed. Please try again.")
+
+        json_system = (system or "") + "\nYou must respond with valid JSON only."
+        last_error: Optional[Exception] = None
+        last_status: Optional[int] = None
+
+        for model_name in self._models_to_try():
+            for attempt in range(1, MAX_RETRIES + 1):
+                try:
+                    config_kwargs: dict = {"response_mime_type": "application/json"}
+                    if json_system.strip():
+                        config_kwargs["system_instruction"] = json_system.strip()
+                    if max_output_tokens:
+                        config_kwargs["max_output_tokens"] = max_output_tokens
+
+                    config = types.GenerateContentConfig(**config_kwargs)
+                    response = self._client.models.generate_content(
+                        model=model_name,
+                        contents=prompt,
+                        config=config,
+                    )
+                    text = (response.text or "").strip()
+                    return parse_llm_json(text)
+
+                except LLMJSONError as exc:
+                    last_error = exc
+                    break
+                except ClientError as exc:
+                    last_error = exc
+                    last_status = _error_status_code(exc)
+                    if last_status in SKIP_MODEL_STATUS_CODES:
+                        break
+                    if last_status in RETRYABLE_STATUS_CODES and attempt < MAX_RETRIES:
+                        time.sleep(RETRY_BASE_DELAY_SEC * (2 ** (attempt - 1)))
+                        continue
+                    break
+                except Exception as exc:
+                    last_error = exc
+                    break
+
+        # Fallback without json mime type
+        try:
+            text = self.generate_text(prompt, system=json_system, max_output_tokens=max_output_tokens)
+            return parse_llm_json(text)
+        except (LLMJSONError, LLMAPIError) as exc:
+            last_error = exc
+
+        if isinstance(last_error, LLMJSONError):
+            raise LLMAPIError(str(last_error), user_message=str(last_error))
         raise LLMAPIError(
             str(last_error),
             user_message=_user_message_for_status(last_status),
