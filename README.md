@@ -25,31 +25,6 @@ Built with Python, Streamlit, Sentence Transformers, and pluggable LLM backends 
 | **Project Analyzer** | GitHub README → structured project metadata |
 | **REST API** | FastAPI endpoints for all core features |
 
----
-
-## 📸 Project Preview
-
-### 1. Resume Upload
-Easily upload your resume for instant parsing.
-![Upload](assets/Upload-Button.png)
-
-### 2. Resume Parsing
-View the structured JSON data of your parsed resume.
-![Parsed](assets/Parsed-Resume.png)
-
-### 3. ATS Analysis
-Get a deep-dive analysis on 8 key dimensions.
-![ATS Analysis](assets/ATS-Analysis.png)
-
-### 4. Skill Gap Analysis
-Identify your matched and missing skills compared to the job description.
-![Skill Gap](assets/Skill-Gap.png)
-
-### 5. Candidate Summary
-Generate a professional, AI-powered summary for your profile.
-![Summary](assets/Summary.png)
-
----
 
 ## Architecture
 
@@ -76,6 +51,31 @@ Generate a professional, AI-powered summary for your profile.
 
 ---
 
+---
+
+## 📸 Project Preview
+
+### 1. Resume Upload
+Easily upload your resume for instant parsing.
+![Upload](assets/Upload-Button.png)
+
+### 2. Resume Parsing
+View the structured JSON data of your parsed resume.
+![Parsed](assets/Parsed-Resume.png)
+
+### 3. ATS Analysis
+Get a deep-dive analysis on 8 key dimensions.
+![ATS Analysis](assets/ATS-Analysis.png)
+
+### 4. Skill Gap Analysis
+Identify your matched and missing skills compared to the job description.
+![Skill Gap](assets/Skill-Gap.png)
+
+### 5. Candidate Summary
+Generate a professional, AI-powered summary for your profile.
+![Summary](assets/Summary.png)
+
+---
 ## Quick Start
 
 ### 1. Clone and install
