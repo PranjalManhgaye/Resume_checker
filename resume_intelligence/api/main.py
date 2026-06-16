@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -60,7 +61,12 @@ def _resume_from_dict(data: dict[str, Any]) -> ResumeData:
 
 @app.get("/health")
 def health() -> dict[str, str]:
-    return {"status": "ok"}
+    return {
+        "status": "ok",
+        "service": "resume-intelligence-api",
+        "version": app.version,
+        "llm_provider": os.getenv("LLM_PROVIDER", "gemini").strip().lower(),
+    }
 
 
 @app.post("/parse")
