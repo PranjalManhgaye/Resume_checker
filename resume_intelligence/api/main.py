@@ -39,6 +39,7 @@ class JobDescriptionRequest(BaseModel):
 class FormFillRequest(BaseModel):
     resume: dict[str, Any]
     questions: list[str]
+    job_description: str = ""
 
 
 class SummaryRequest(BaseModel):
@@ -105,7 +106,7 @@ def form_fill_endpoint(body: FormFillRequest) -> dict[str, str]:
     resume = _resume_from_dict(body.resume)
     questions = [FormQuestion(q) for q in body.questions]
     try:
-        return fill_form(resume, questions)
+        return fill_form(resume, questions, job_description=body.job_description)
     except LLMAPIError as exc:
         raise HTTPException(status_code=503, detail=exc.user_message) from exc
 

@@ -319,14 +319,21 @@ def page_form_autofill() -> None:
         height=150,
     )
 
+    job_description = st.text_area(
+        "Job Description (optional — helps with 'why this role' questions)",
+        value=st.session_state.get("job_description", ""),
+        height=100,
+    )
+
     if st.button("Generate Answers", type="primary"):
         lines = [q.strip() for q in questions_text.splitlines() if q.strip()]
         st.session_state["form_questions"] = lines
+        st.session_state["job_description"] = job_description
         questions = [FormQuestion(q) for q in lines]
 
         with st.spinner("Generating answers..."):
             try:
-                answers = fill_form(resume, questions)
+                answers = fill_form(resume, questions, job_description=job_description)
                 st.session_state["form_answers"] = answers
             except Exception as exc:
                 show_ai_error(exc)
@@ -452,6 +459,24 @@ def page_project_analyzer() -> None:
             for err in analysis.errors:
                 st.warning(err)
 
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Stars", analysis.stars)
+        col2.metric("Tests/CI hint", "Yes" if analysis.has_tests_hint else "No")
+        col3.write(f"**Updated:** {analysis.last_updated or '—'}")
+
+        if analysis.languages:
+            st.subheader("Languages")
+            st.write(", ".join(f"{k} ({v}%)" for k, v in analysis.languages.items()))
+
+        if analysis.talking_points:
+            st.subheader("Interview talking points")
+            for point in analysis.talking_points:
+                st.markdown(f"- {point}")
+
+        if analysis.interview_angle:
+            st.info(analysis.interview_angle)
+
+        st.subheader("Structured analysis")
         st.json(analysis.to_dict())
 
         st.download_button(

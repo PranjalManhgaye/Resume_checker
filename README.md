@@ -1,5 +1,11 @@
 # Resume Intelligence Platform
 
+![Python](https://img.shields.io/badge/python-3.12+-blue.svg)
+![Tests](https://img.shields.io/badge/tests-41%20passing-brightgreen.svg)
+![License](https://img.shields.io/badge/license-MIT-green.svg)
+![FastAPI](https://img.shields.io/badge/FastAPI-REST-009688.svg)
+![Streamlit](https://img.shields.io/badge/UI-Streamlit-FF4B4B.svg)
+
 An AI-powered resume analysis platform that goes beyond simple ATS checking. Upload a resume, match it against job descriptions, identify skill gaps, auto-fill application forms, and generate recruiter-ready summaries.
 
 Built with Python, Streamlit, Sentence Transformers, and pluggable LLM backends (Groq / Gemini).
@@ -11,7 +17,7 @@ Built with Python, Streamlit, Sentence Transformers, and pluggable LLM backends 
 | Feature | Description |
 |---------|-------------|
 | **Resume Parser** | Extract structured data from PDF and DOCX (PyMuPDF + pdfplumber fallback) |
-| **ATS Scoring** | 40% skill match + 40% semantic similarity + 20% experience relevance |
+| **ATS Scoring** | 8-dimension score: impact, quantification, TF-IDF keywords, sections, verbs, skills, formatting, role-fit |
 | **Skill Gap Analysis** | Matched, missing, and recommended skills from job descriptions |
 | **Form Autofill** | Deterministic + AI answers for application questions |
 | **Resume Improvement** | Rephrase bullets without inventing facts |
@@ -19,7 +25,6 @@ Built with Python, Streamlit, Sentence Transformers, and pluggable LLM backends 
 | **Project Analyzer** | GitHub README → structured project metadata |
 | **REST API** | FastAPI endpoints for all core features |
 
----
 
 ## Architecture
 
@@ -46,6 +51,31 @@ Built with Python, Streamlit, Sentence Transformers, and pluggable LLM backends 
 
 ---
 
+---
+
+## 📸 Project Preview
+
+### 1. Resume Upload
+Easily upload your resume for instant parsing.
+![Upload](assets/Upload-Button.png)
+
+### 2. Resume Parsing
+View the structured JSON data of your parsed resume.
+![Parsed](assets/Parsed-Resume.png)
+
+### 3. ATS Analysis
+Get a deep-dive analysis on 8 key dimensions.
+![ATS Analysis](assets/ATS-Analysis.png)
+
+### 4. Skill Gap Analysis
+Identify your matched and missing skills compared to the job description.
+![Skill Gap](assets/Skill-Gap.png)
+
+### 5. Candidate Summary
+Generate a professional, AI-powered summary for your profile.
+![Summary](assets/Summary.png)
+
+---
 ## Quick Start
 
 ### 1. Clone and install
@@ -149,6 +179,8 @@ Scores resumes across **8 dimensions** (12.5% weight each):
 | Role-Fit | TF-IDF cosine similarity (resume vs. job description) |
 
 Keyword alignment and role-fit use [scikit-learn TfidfVectorizer](https://scikit-learn.org/stable/modules/generated/sklearn.feature_extraction.text.TfidfVectorizer.html) to map job-description terms against resume content.
+
+For formulas, weights, TF-IDF params, and limitations see **[ALGORITHM.md](ALGORITHM.md)**.
 
 ---
 
