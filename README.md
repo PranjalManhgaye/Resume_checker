@@ -193,6 +193,12 @@ For formulas, weights, TF-IDF params, and limitations see **[ALGORITHM.md](ALGOR
 
 ---
 
+## Screenshots
+
+_Coming soon — see [assets/](assets/) and issue #2._
+
+---
+
 ## Author
 
 **Pranjal Manhgaye**
