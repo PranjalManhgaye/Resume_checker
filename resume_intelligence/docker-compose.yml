@@ -1,0 +1,11 @@
+# WIP — partial setup for local docker trial
+services:
+  ui:
+    build: .
+    ports:
+      - "8501:8501"
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+    # api service split still todo
